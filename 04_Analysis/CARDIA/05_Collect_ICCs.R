@@ -1,62 +1,82 @@
-# Load packages
-library(readr)
-library(lme4)
-library(performance)
-library(dplyr)
-library(tibble)
+library(tidyverse)
+library(rptR)
 
-# Load data
-CARDIA_combined_data <- read_csv("../CARDIA_Data/CARDIA_combined_data.csv")
+combined_data <- read_csv("../CARDIA_Replicates_Data/Clean_Combined_Data.csv")
 
-#########################################################
-# Function to compute ICCs
-#########################################################
+length(unique(combined_data$dbgap_subject_id))
 
-compute_clock_iccs <- function(data, clock_names, id_var = "dbgap_subject_id") {
-  results <- lapply(clock_names, function(clock) {
-    # Fit model
-    formula <- as.formula(paste0(clock, " ~ 1 + (1 | ", id_var, ")"))
-    model <- lmer(formula, data = data, REML = TRUE)
-    
-    # Compute ICCs
-    icc_df <- performance::icc(model, ci = TRUE)
-    
-    # Extract values correctly by row
-    tibble(
-      clock = clock,
-      icc = icc_df$ICC_adjusted[1],
-      ci_low = icc_df$ICC_adjusted[2],
-      ci_high = icc_df$ICC_adjusted[3],
-      n_subjects = length(unique(data[[id_var]])),
-      n_obs = nrow(data)
-    )
-  })
+selected_clocks = c("ElasticNetResid",
+                    "RidgeResid",
+                    "DunedinPACEResid", 
+                    "PCGrimAgeResid"
+)
+
+calculate_icc <- function(df, clocks, subject_id, n_boot = 100) {
   
-  bind_rows(results)
+  # Validate inputs
+  if (!all(clocks %in% names(df))) {
+    missing_clocks <- clocks[!clocks %in% names(df)]
+    stop("Missing clock columns: ", paste(missing_clocks, collapse = ", "))
+  }
+  
+  if (!subject_id %in% names(df)) {
+    stop("Missing required column: ", subject_id)
+  }
+  
+  # Transform data to long format
+  icc_data <- df |> 
+    dplyr::select(all_of(subject_id), all_of(clocks)) |>
+    pivot_longer(
+      cols = all_of(clocks),
+      names_to = "clock_name",
+      values_to = "clock_value"
+    )
+  
+  # Initialize results tibble
+  results <- tibble(
+    clock_name = character(length(clocks)),
+    icc = numeric(length(clocks)),
+    lower_ci = numeric(length(clocks)),
+    upper_ci = numeric(length(clocks))
+  )
+  
+  # Calculate ICC for each clock
+  for (i in seq_along(clocks)) {
+    
+    clock_data <- icc_data |>
+      filter(clock_name == clocks[i])
+    
+    # Create formula dynamically using the subject_id parameter
+    formula_str <- paste("clock_value ~ (1|", subject_id, ")", sep = "")
+    
+    # Calculate ICC using rptR
+    icc_result <- rpt(
+      formula = as.formula(formula_str),
+      grname = subject_id,
+      data = clock_data,
+      datatype = "Gaussian",
+      nboot = n_boot,
+      npermut = 0
+    )
+    
+    # Extract results
+    icc_summary <- summary(icc_result)
+    
+    results$clock_name[i] <- clocks[i]
+    results$icc[i] <- round(as.numeric(icc_summary$R[[subject_id]]), 3)
+    results$lower_ci[i] <- round(as.numeric(icc_summary$CI_emp$`2.5%`), 3)
+    results$upper_ci[i] <- round(as.numeric(icc_summary$CI_emp$`97.5%`), 3)
+  }
+  
+  return(results)
 }
 
+icc_results <- calculate_icc(
+  df = combined_data,
+  clocks = selected_clocks,
+  subject_id = "dbgap_subject_id",
+  n_boot = 100
+)
 
-
-
-#########################################################
-# Get results
-#########################################################
-
-CARDIA_combined_data$PCGrimAge_noagecoeff <- CARDIA_combined_data$PCGrimAge - (0.139 * CARDIA_combined_data$age_at_collection)
-
-cor(CARDIA_combined_data$age_at_collection, CARDIA_combined_data$PCGrimAge)
-cor(CARDIA_combined_data$age_at_collection, CARDIA_combined_data$PCGrimAge_noagecoeff)
-
-clock_names <- c("ElasticNet", 
-                 "Ridge", 
-                 "DunedinPACE",
-                 "PCGrimAge")
-
-icc_results <- compute_clock_iccs(CARDIA_combined_data, clock_names)
-print(icc_results)
-
-#########################################################
-# Save results
-#########################################################
-
-write.csv(icc_results, "../CARDIA_Output/ICC_Results.csv")
+# Write to CSV
+write.csv(icc_results, "../CARDIA_Replicates_Output/CARDIA_Replicates_ICC_Result_Summary.csv")
