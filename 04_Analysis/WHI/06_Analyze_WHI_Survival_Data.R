@@ -124,7 +124,7 @@ run_survival_analyses <- function(data, clocks, outcomes, control_covariates){
 # Minimal controls (Age, Race)
 #####################################
 
-outcomes <- c("CHD", "CHF", "STROKE", "ANYCANCER", "ANYFX", "DEATH")
+outcomes <- c("CHD", "STROKE", "ANYCANCER", "DEATH")
 
 clocks <- c("RidgeResid_scaled",
             "ElasticNetResid_scaled",
