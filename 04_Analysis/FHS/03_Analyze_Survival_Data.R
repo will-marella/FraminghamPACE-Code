@@ -46,8 +46,8 @@ run_survival_analysis <- function(data, clocks, outcome_time, outcome_status, co
     conf_ints <- confint(model)
     
     # Get sample size info
-    n_subjects <- nrow(data)
-    n_events <- sum(data[[outcome_status]], na.rm = TRUE)
+    n_subjects <- model$n
+    n_events <- model$nevent
     
     # Create row of results
     clock_results <- data.frame(
