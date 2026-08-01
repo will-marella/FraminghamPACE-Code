@@ -52,29 +52,6 @@ analysis_df <- dat %>%
 
 
 ################################
-# Detour: Confirm n_subj, n_obs
-# By CR/AL
-################################
-
-## N subjects
-dat_asamp1 <- dat[dat$asample == 1,]
-n_sub_asamp1 <- length(unique(dat_asamp1$deidnum))
-
-asamp1_CR <- dat_asamp1[dat_asamp1$Treatment == "Caloric Restriction",]
-n_sub_asamp1_CR <- length(unique(asamp1_CR$deidnum))
-
-asamp1_AL <- dat_asamp1[dat_asamp1$Treatment == "Ad Libitum",]
-n_sub_asamp1_AL <- length(unique(asamp1_AL$deidnum))
-
-## N obs
-dat_CR <- dat[dat$Treatment == "Caloric Restriction",]
-dat_AL <- dat[dat$Treatment == "Ad Libitum",]
-
-n_obs_CR <- length(unique(dat_CR$barcode))
-n_obs_AL <- length(unique(dat_AL$barcode))
-
-
-################################
 # Core modeling (shared by analysis & plotting)
 ################################
 # Build & fit model for a given clock; return model + model_data actually used
@@ -103,7 +80,29 @@ fit_clock <- function(clock_name, include_cells = FALSE, data = analysis_df) {
     control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
   )
   
-  list(model = model, model_data = data)
+  list(
+    model = model,
+    model_data = model.frame(model)
+  )
+}
+
+summarize_fitted_counts <- function(fit, clock_name, analysis_label) {
+  fit$model_data %>%
+    as_tibble() %>%
+    group_by(Treatment, Visit.ID) %>%
+    summarize(
+      n_participants = n_distinct(deidnum),
+      n_observations = n(),
+      .groups = "drop"
+    ) %>%
+    mutate(
+      analysis = analysis_label,
+      clock = clock_name
+    ) %>%
+    dplyr::select(
+      analysis, clock, Treatment, Visit.ID,
+      n_participants, n_observations
+    )
 }
 
 ################################
@@ -190,9 +189,9 @@ predictions_cr2 <- function(model, clock_name) {
       Visit.ID  = forcats::fct_relevel(Visit.ID, "12 Month", "24 Month"),
       Treatment = forcats::fct_relevel(Treatment, "Ad Libitum", "Caloric Restriction")
     ) %>%
-    select(Visit.ID, Treatment,
-           predicted = emmean, se = SE,
-           ci_lower, ci_upper) %>%
+    dplyr::select(Visit.ID, Treatment,
+                  predicted = emmean, se = SE,
+                  ci_lower, ci_upper) %>%
     # Baseline anchor (0; no CI)
     bind_rows(
       tibble(
@@ -255,14 +254,22 @@ clock_names <- c(
 ################################
 
 results_no_cells <- list()
+counts_no_cells <- list()
 
 for (clk in clock_names) {
   cat("\n", paste(rep("=", 50), collapse = ""), "\nAnalyzing:", clk, "\n", paste(rep("=", 50), collapse = ""), "\n")
   
   fit <- fit_clock(clk, include_cells = FALSE, data = analysis_df)
+  
+  counts_no_cells[[clk]] <- summarize_fitted_counts(
+    fit,
+    clock_name = clk,
+    analysis_label = "Primary"
+  )
+  
   model <- fit$model
   
-  # Optional: pretty (non-robust) model table for reference
+  # Pretty (non-robust) model table for reference
   suppressMessages(print(
     sjPlot::tab_model(
       model,
@@ -275,10 +282,12 @@ for (clk in clock_names) {
   # Robust effects (12m, 12→24, 0→24)
   eff <- extract_effects_cr2(model, clk)
   results_no_cells[[clk]] <- eff
-
+  
 }
 
 results_no_cells_df <- bind_rows(results_no_cells)
+counts_no_cells_df <- bind_rows(counts_no_cells)
+
 print(results_no_cells_df)
 
 results_no_cells_df <- as.data.frame(results_no_cells_df)
@@ -289,14 +298,22 @@ results_no_cells_df <- as.data.frame(results_no_cells_df)
 
 
 results_w_cells <- list()
+counts_w_cells <- list()
 
 for (clk in clock_names) {
   cat("\n", paste(rep("=", 50), collapse = ""), "\nAnalyzing:", clk, "\n", paste(rep("=", 50), collapse = ""), "\n")
   
   fit <- fit_clock(clk, include_cells = TRUE, data = analysis_df)
+  
+  counts_w_cells[[clk]] <- summarize_fitted_counts(
+    fit,
+    clock_name = clk,
+    analysis_label = "Cell-adjusted"
+  )
+  
   model <- fit$model
   
-  # Optional: pretty (non-robust) model table for reference
+  # Pretty (non-robust) model table for reference
   suppressMessages(print(
     sjPlot::tab_model(
       model,
@@ -313,9 +330,16 @@ for (clk in clock_names) {
 }
 
 results_with_cells_df <- bind_rows(results_w_cells)
+counts_w_cells_df <- bind_rows(counts_w_cells)
+
 print(results_with_cells_df)
 
 results_with_cells_df <- as.data.frame(results_with_cells_df)
+
+fitted_counts_df <- bind_rows(
+  counts_no_cells_df,
+  counts_w_cells_df
+)
 
 ################################
 # Save results
@@ -323,3 +347,5 @@ results_with_cells_df <- as.data.frame(results_with_cells_df)
 
 write.csv(results_no_cells_df, "../CALERIE_Output/CALERIE_Clock_Treatment_Effect.csv", row.names = FALSE)
 write.csv(results_with_cells_df, "../CALERIE_Output/CALERIE_Clock_Treatment_Effect_with_cells.csv", row.names = FALSE)
+
+write.csv(fitted_counts_df, "../CALERIE_Output/CALERIE_Analysis_Counts.csv", row.names = FALSE)
