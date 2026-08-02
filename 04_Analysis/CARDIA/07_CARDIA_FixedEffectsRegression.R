@@ -52,6 +52,26 @@ clean_data <- full_data %>%
 
 
 #########################################################
+# Run Hausman test for FraminghamPACEa
+#########################################################
+
+test_formula <- paste("ElasticNet", "~ time_since_baseline + I(time_since_baseline^2)")
+
+fixed_test <- plm(test_formula, 
+                  data=clean_data, 
+                  index = c("dbgap_subject_id", "collection_year"),
+                  model="within")
+
+random_test <- plm(test_formula, 
+                   data=clean_data, 
+                   index = c("dbgap_subject_id", "collection_year"),
+                   model="random")
+
+phtest(fixed_test, random_test) # Doesn't pass, not even close
+
+print(unique(clean_data$collection_visit))
+
+#########################################################
 # Get complete timepoint data
 #########################################################
 
