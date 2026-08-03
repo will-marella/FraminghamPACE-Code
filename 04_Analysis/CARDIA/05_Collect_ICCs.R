@@ -11,7 +11,7 @@ selected_clocks = c("ElasticNetResid",
                     "PCGrimAgeResid"
 )
 
-calculate_icc <- function(df, clocks, subject_id, n_boot = 100) {
+calculate_icc <- function(df, clocks, subject_id, n_boot = 1000) {
   
   # Validate inputs
   if (!all(clocks %in% names(df))) {

@@ -13,7 +13,7 @@ selected_clocks = c("ElasticNet",
 )
 
 
-calculate_icc <- function(df, clocks, n_boot = 100) {
+calculate_icc <- function(df, clocks, n_boot = 1000) {
   
   # Validate inputs
   if (!all(clocks %in% names(df))) {
