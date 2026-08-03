@@ -11,7 +11,7 @@ pheno_data_passedQC <- pheno_data[pheno_data$passed_cu_core_QC == "pass", ]
 
 
 # Merge dataframes
-pheno_and_outcomes_messy <- merge(pheno_data, outcomes,
+pheno_and_outcomes_messy <- merge(pheno_data_passedQC, outcomes,
                                   by.x = "SUBJECT_ID",
                                   by.y = "SUBJID",
                                   all=FALSE)
@@ -33,7 +33,7 @@ names(pheno_and_outcomes_messy)
 # Keep only the relevant columns
 # Rename so all columns are capitalized, for consistency
 pheno_and_outcomes <- pheno_and_outcomes_messy %>%
-  select(all_of(relevant_columns)) %>%
+  dplyr::select(all_of(relevant_columns)) %>%
   rename(
     BARCODE = Barcode,
     AGE = age,
@@ -42,4 +42,3 @@ pheno_and_outcomes <- pheno_and_outcomes_messy %>%
 
 # Save complete pheno/outcomes dataset
 write.csv(pheno_and_outcomes, "../WHI_Data/WHI_complete_pheno_outcome_dataset.csv")
-
