@@ -8,7 +8,7 @@ library(dplyr)
 library(FraminghamPACE)
 
 # Load in data
-data <- read_csv("../FHS_Data/FraminghamPoA_Training_Set_v2_TruD.csv")
+data <- read_csv("../FHS_Data/WTM_FraminghamPoA_Training_Set_v2_TruD.csv")
 data <- as.data.frame(data)
 rownames(data) <- data$...1
 data <- data %>%
