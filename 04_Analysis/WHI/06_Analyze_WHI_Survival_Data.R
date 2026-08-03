@@ -75,7 +75,6 @@ run_survival_analysis <- function(data, clocks, outcome_time, outcome_status, co
                 all_results$clock[i], 
                 all_results$hazard_ratio[i], 
                 all_results$lower_ci[i], 
-                all_results$std_error[i],
                 all_results$upper_ci[i]))
   }
   cat("\n")
