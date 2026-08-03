@@ -76,7 +76,7 @@ selected_clocks_resid <- paste0(selected_clocks, "Resid")
 icc_results <- calculate_icc(
   df = combined_data,
   clocks = selected_clocks_resid,
-  n_boot = 100
+  n_boot = 1000
 )
 
 # Write to CSV

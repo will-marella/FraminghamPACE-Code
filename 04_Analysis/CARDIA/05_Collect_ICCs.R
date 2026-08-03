@@ -75,7 +75,7 @@ icc_results <- calculate_icc(
   df = combined_data,
   clocks = selected_clocks,
   subject_id = "dbgap_subject_id",
-  n_boot = 100
+  n_boot = 1000
 )
 
 # Write to CSV
