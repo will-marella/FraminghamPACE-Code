@@ -16,4 +16,4 @@ betas_probefiltered <- betas_t[, colnames(betas_t) %in% probe_list]
 
 
 # Save as .csv
-write.csv(betas_probefiltered, "../Lehne_Data/Lehne_SugdenProbes.csv")
+write.csv(betas_probefiltered, "../Lehne_Data/Lehne_SugdenProbes_replicates.csv")
