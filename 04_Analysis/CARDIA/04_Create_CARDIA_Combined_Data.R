@@ -116,7 +116,7 @@ full_data <- combined_data %>%
   ungroup()
 
 # Automatically identify clock columns by prefix
-clock_prefixes <- c("^Framingham", "^Dunedin", "^PC")
+clock_prefixes <- c("^ElasticNet", "^Ridge", "^Dunedin", "^PC")
 clock_cols <- grep(paste(clock_prefixes, collapse = "|"), 
                    names(full_data), value = TRUE)
 
