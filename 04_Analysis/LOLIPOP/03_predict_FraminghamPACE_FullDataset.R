@@ -30,10 +30,8 @@ betas <- Lehne_betas
 
 # Create a list of the dataframes with their desired column names
 pace_list <- list(
-  FraminghamPACE = getFraminghamPACE(betas, model_type = "FraminghamPACE"),
-  Alternate1 = getFraminghamPACE(betas, model_type = "Alternate1"),
-  Alternate2 = getFraminghamPACE(betas, model_type = "Alternate2"),
-  Alternate3 = getFraminghamPACE(betas, model_type = "Alternate3")
+  ElasticNet = getFraminghamPACE(betas, model_type = "ElasticNet"),
+  Ridge = getFraminghamPACE(betas, model_type = "Ridge")
 )
 
 # Combine into a single dataframe with proper column names
