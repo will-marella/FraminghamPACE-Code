@@ -30,6 +30,25 @@ load_framingham_file <- function(file_c1, file_c2) {
   bind_rows(data_1, data_2)
 }
 
+# Load dbGaP files that contain multiple leading comment lines
+load_framingham_commented_file <- function(file_c1, file_c2) {
+  data_1 <- read.delim(
+    file_c1,
+    comment.char = "#",
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+  
+  data_2 <- read.delim(
+    file_c2,
+    comment.char = "#",
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+  
+  bind_rows(data_1, data_2)
+}
+
 # Reshape variable to long format by visit
 reshape_to_long <- function(df, var_pattern, var_name) {
   df %>%
@@ -129,21 +148,7 @@ clinic_2 <- load_framingham_file(
     mcv      = as.numeric(b765)
   )
 
-# Visit 3
-clinic_3 <- load_framingham_file(
-  "../Data/RAW/phs000007.v33.pht000032.v9.p14.c1.ex1_3s.HMB-IRB-MDS.txt",
-  "../Data/RAW/phs000007.v33.pht000032.v9.p14.c2.ex1_3s.HMB-IRB-NPU-MDS.txt"
-) %>%
-  clean_names() %>%
-  transmute(
-    subject_id = db_ga_p_subject_id,
-    visit = 3
-    # add other non-apo vars here if you need them
-  )
-
-clinic <- bind_rows(clinic_1, clinic_2, clinic_3) %>%
-  group_by(subject_id, visit) %>%
-  summarise(across(everything(), ~ dplyr::coalesce(.[1], NA_real_)), .groups = "drop") %>%
+clinic <- bind_rows(clinic_1, clinic_2) %>%
   select(-hgb)
 
 # ==============================================================================
@@ -154,7 +159,6 @@ mean(as.numeric(clinic$bun), na.rm=TRUE) # 15.15735
 mean(as.numeric(clinic$uricacid), na.rm=TRUE) # 54.21726
 mean(as.numeric(clinic$totprot), na.rm=TRUE) # 72.45566
 mean(as.numeric(clinic$albumin), na.rm=TRUE) # 45.71692
-mean(as.numeric(clinic$apolipo_ratio), na.rm=TRUE) # 0.6527008
 
 # ==============================================================================
 # CRP:
@@ -534,11 +538,10 @@ summary(il6$il6)
 
 
 # ==============================================================================
-# Apolipoproteins (Exam 5)  ------------------------------------------------------
-# Source: lipids1_5s
+# Apolipoprotein B/A1 Ratio -----------------------------------------------------
+# Exams: 3 and 4
+# Note: Exam 4 variables APOA14 and APOB4 are stored in the lipids1_5s table.
 # ==============================================================================
-
-# Apolipoproteins (Visits 3 + 5) -----------------------------------------------
 
 apolipo_3 <- load_framingham_file(
   "../Data/RAW/phs000007.v33.pht000032.v9.p14.c1.ex1_3s.HMB-IRB-MDS.txt",
@@ -558,7 +561,7 @@ apolipo_3 <- load_framingham_file(
   ) %>%
   select(subject_id, visit, apolipo_ratio)
 
-apolipo_5 <- load_framingham_file(
+apolipo_4 <- load_framingham_file(
   "../Data/RAW/phs000007.v33.pht000205.v9.p14.c1.lipids1_5s.HMB-IRB-MDS.txt",
   "../Data/RAW/phs000007.v33.pht000205.v9.p14.c2.lipids1_5s.HMB-IRB-NPU-MDS.txt"
 ) %>%
@@ -567,7 +570,7 @@ apolipo_5 <- load_framingham_file(
   select(-shareid, -idtype) %>%
   transmute(
     subject_id,
-    visit = 5,
+    visit = 4,
     apoa1 = as.numeric(apoa14),
     apob  = as.numeric(apob4)
   ) %>%
@@ -580,15 +583,15 @@ apolipo_5 <- load_framingham_file(
   ) %>%
   select(subject_id, visit, apolipo_ratio)
 
-apolipo <- bind_rows(apolipo_3, apolipo_5) %>%
+apolipo <- bind_rows(apolipo_3, apolipo_4) %>%
   group_by(subject_id, visit) %>%
   summarise(apolipo_ratio = dplyr::coalesce(apolipo_ratio[1], NA_real_), .groups = "drop")
 
 
 # ==============================================================================
-# Homocysteine  ---------------------------------------------------------------
-# Visits: 5, 6, 7, 8
-# Source: laba1_* / fhslab1_* chemistry panels
+# Homocysteine -----------------------------------------------------------------
+# Exams: 2, 5, 6, and 7
+# Sources: homocys1_2s and laba1_* chemistry panels
 # ==============================================================================
 
 extract_hcy <- function(file_c1, file_c2, visit, hcy_col) {
@@ -602,6 +605,18 @@ extract_hcy <- function(file_c1, file_c2, visit, hcy_col) {
       homocysteine = as.numeric(.data[[janitor::make_clean_names(hcy_col)]])
     )
 }
+
+# --- Exam 2 ---
+homocysteine_2 <- load_framingham_commented_file(
+  "../Data/WTM_RAW/phs000007.v33.pht000092.v9.p14.c1.homocys1_2s.HMB-IRB-MDS.txt",
+  "../Data/WTM_RAW/phs000007.v33.pht000092.v9.p14.c2.homocys1_2s.HMB-IRB-NPU-MDS.txt"
+) %>%
+  clean_names() %>%
+  transmute(
+    subject_id = as.character(db_ga_p_subject_id),
+    visit = 2,
+    homocysteine = as.numeric(thc)
+  )
 
 # --- Visit 5 ---
 homocysteine_5 <- extract_hcy(
@@ -629,15 +644,11 @@ homocysteine_7 <- extract_hcy(
 
 # --- Combine ---
 homocysteine <- bind_rows(
+  homocysteine_2,
   homocysteine_5,
   homocysteine_6,
   homocysteine_7
-) %>%
-  group_by(subject_id, visit) %>%
-  summarise(
-    homocysteine = dplyr::coalesce(homocysteine[1], NA_real_),
-    .groups = "drop"
-  )
+)
 
 # ==============================================================================
 # Quick validation  -------------------------------------------------------------
@@ -646,11 +657,18 @@ summary(homocysteine$homocysteine)
 
 
 # ==============================================================================
-# Sanity Check  ---------------------------------------------------------------
+# Sanity Check -----------------------------------------------------------------
 # ==============================================================================
+
 check_keys <- function(df, name) {
-  stopifnot(!any(is.na(df$subject_id)))
-  stopifnot(!any(is.na(df$visit)))
+  if (anyNA(df$subject_id) || anyNA(df$visit)) {
+    stop(name, " contains missing subject_id or visit values.", call. = FALSE)
+  }
+  
+  if (anyDuplicated(df[c("subject_id", "visit")]) > 0) {
+    stop(name, " contains duplicate subject_id/visit keys.", call. = FALSE)
+  }
+  
   message(name, ": ", nrow(df), " rows")
 }
 
@@ -662,6 +680,11 @@ check_keys(fibrinogen, "fibrinogen")
 check_keys(pulmonary, "pulmonary")
 check_keys(il6, "il6")
 check_keys(homocysteine, "homocysteine")
+check_keys(apolipo, "apolipo")
+
+# Guard against accidental changes to the corrected exam assignments
+stopifnot(identical(sort(unique(apolipo$visit)), c(3, 4)))
+stopifnot(identical(sort(unique(homocysteine$visit)), c(2, 5, 6, 7)))
 
 # ==============================================================================
 # Merge  ---------------------------------------------------------------
@@ -763,143 +786,7 @@ biomarker_visit_summary
 
 
 # ==============================================================================
-# Load in additional datasets  (WTM_RAW) ---------------------------------------
-# ==============================================================================
-
-load_framingham_file <- function(file_c1, file_c2) {
-  # dbGaP files have ~10-11 comment lines starting with #, then column names
-  data_1 <- read.delim(file_c1, comment.char = "#", stringsAsFactors = FALSE)
-  data_2 <- read.delim(file_c2, comment.char = "#", stringsAsFactors = FALSE)
-  
-  bind_rows(data_1, data_2)
-}
-
-homocys1_2s <- load_framingham_file(
-  "../Data/WTM_RAW/phs000007.v33.pht000092.v9.p14.c1.homocys1_2s.HMB-IRB-MDS.txt",
-  "../Data/WTM_RAW/phs000007.v33.pht000092.v9.p14.c2.homocys1_2s.HMB-IRB-NPU-MDS.txt"
-) %>%
-  clean_names() %>%
-  rename(subject_id = db_ga_p_subject_id) %>%
-  select(-shareid, -idtype) %>%
-  transmute(
-    subject_id,
-    visit = 2,
-    homocysteine = as.numeric(thc),
-  )
-
-lipids1_5s <- load_framingham_file(
-  "../Data/WTM_RAW/phs000007.v33.pht000205.v9.p14.c1.lipids1_5s.HMB-IRB-MDS.txt",
-  "../Data/WTM_RAW/phs000007.v33.pht000205.v9.p14.c2.lipids1_5s.HMB-IRB-NPU-MDS.txt"
-) 
-
-apolipo_ex4 <- lipids1_5s %>%
-  clean_names() %>%
-  rename(subject_id = db_ga_p_subject_id) %>%
-  select(-shareid, -idtype) %>%
-  transmute(
-    subject_id,
-    visit = 4,
-    apoa1 = as.numeric(apoa14),
-    apob = as.numeric(apob4)
-  ) %>%
-  mutate(
-    apoa1 = na_if(apoa1, 0),
-    apob  = na_if(apob, 0),
-    apoa1 = ifelse(apoa1 < 0, NA_real_, apoa1),
-    apob  = ifelse(apob  < 0, NA_real_, apob),
-    apolipo_ratio = apob / apoa1
-  ) %>%
-  select(subject_id, visit, apolipo_ratio)
-
-# ==============================================================================
-# Validate New Datasets Against Existing Data ---------------------------------
-# ==============================================================================
-
-# 1. Compare homocysteine scales
-cat("\n=== HOMOCYSTEINE VALIDATION ===\n")
-cat("Existing data (visits 5-7):\n")
-print(summary(homocysteine$homocysteine))
-
-cat("\nNew visit 2 data:\n")
-print(summary(homocys1_2s$homocysteine))
-
-# 3. Compare apolipo_ratio scales
-cat("\n=== APOLIPOPROTEIN RATIO VALIDATION ===\n")
-cat("Existing data (visits 3, 5):\n")
-print(summary(apolipo$apolipo_ratio))
-
-cat("\nNew visit 4 data:\n")
-print(summary(apolipo_ex4$apolipo_ratio))
-
-# ==============================================================================
-# Merge New Data ---------------------------------------------------------------
-# ==============================================================================
-# Strategy: Use coalesce to prefer existing data when there are conflicts
-# (assuming existing data is already validated)
-
-# Homocysteine - add visit 2
-homocysteine_updated <- bind_rows(
-  homocysteine,
-  homocys1_2s %>% mutate(subject_id = as.character(subject_id))
-) %>%
-  group_by(subject_id, visit) %>%
-  summarise(homocysteine = coalesce(homocysteine[1], NA_real_), .groups = "drop")
-
-
-# Apolipoprotein ratio - add visit 4
-apolipo_updated <- bind_rows(
-  apolipo,
-  apolipo_ex4 %>% mutate(subject_id = as.character(subject_id))
-) %>%
-  group_by(subject_id, visit) %>%
-  summarise(apolipo_ratio = coalesce(apolipo_ratio[1], NA_real_), .groups = "drop")
-
-# Now re-merge everything
-biomarker_updated <- list(
-  anthropometry,
-  clinic,
-  crp,
-  insulin,
-  fibrinogen,
-  pulmonary,
-  il6,
-  homocysteine_updated,
-  apolipo_updated
-) %>%
-  reduce(full_join, by = c("subject_id", "visit"))
-
-# Apply same final formatting as before
-biomarker_updated <- biomarker_updated %>%
-  arrange(subject_id, visit) %>%
-  mutate(across(-c(subject_id, visit), as.numeric)) %>%
-  select(
-    subject_id, visit,
-    glucose, insulin, bun, creatinine, uricacid,
-    albumin, totprot, wbc, mcv,
-    apolipo_ratio,
-    crp, il6, fibrinogen, homocysteine,
-    fev1, fvc, fev1_fvc, fef25,
-    hip_waist_ratio
-  )
-
-# ==============================================================================
-# Validation -------------------------------------------------------------------
-# ==============================================================================
-
-cat("\n=== UPDATED COVERAGE ===\n")
-biomarker_visit_summary_updated <- biomarker_updated %>%
-  pivot_longer(cols = -c(subject_id, visit), names_to = "biomarker", values_to = "value") %>%
-  group_by(biomarker, visit) %>%
-  summarise(n_non_missing = sum(!is.na(value)), .groups = "drop") %>%
-  filter(n_non_missing > 0) %>%
-  group_by(biomarker) %>%
-  summarise(visits = paste(sort(unique(visit)), collapse = ", "), .groups = "drop")
-
-print(biomarker_visit_summary_updated)
-
-
-# ==============================================================================
 # Output  ---------------------------------------------------------------
 # ==============================================================================
-write.csv(biomarker_updated, "../Data/WTM_biomarkers_raw.csv")
+write.csv(biomarker, "../Data/WTM_biomarkers_raw.csv")
 
