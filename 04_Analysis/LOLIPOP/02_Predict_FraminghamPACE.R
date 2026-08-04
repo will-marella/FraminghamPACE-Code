@@ -1,28 +1,22 @@
-# Create HRS survival data
+# Predict FraminghamPACEa and b
 
 library(readr)
 library(dplyr)
-library(corrplot)
-library(glmnet)
-library(preprocessCore)
 library(FraminghamPACE)
 
-Lehne_betas <- readRDS("../Lehne_Data/Lehne_Bvals_Whole_Sample.rds")
-Lehne_pheno <- read_csv("../Lehne_Data/Clean_Pheno_FullDataset.csv")
+## Read in sugden probes, phenotype info
+lehne_sugdens <- read_csv("../Lehne_Data/Lehne_SugdenProbes_replicates.csv")
 
-# Ensure the subjects are rows
-# And the row names are the subject ids
-Lehne_betas <- as.data.frame(Lehne_betas)
+## Wrangle betas and age_sex_df into correct format
 
-head(rownames(Lehne_betas))
-tail(rownames(Lehne_betas))
-head(colnames(Lehne_betas))
-tail(colnames(Lehne_betas))
+# betas
+lehne_sugdens <- as.data.frame(lehne_sugdens)
+rownames(lehne_sugdens) <- lehne_sugdens$`...1`
+lehne_sugdens <- lehne_sugdens %>%
+  dplyr::select(-`...1`)
 
-sugden_CpGs <- rownames(Lehne_betas)
-beta_IDs <- names(Lehne_betas)
-
-betas <- Lehne_betas
+lehne_sugdens <- t(lehne_sugdens)
+betas <- as.matrix(lehne_sugdens)
 
 #####################################
 #####################################
@@ -52,8 +46,8 @@ scaled_columns <- paste0(pace_columns, "_scaled")  # Create scaled column names
 # Scale all at once
 all_Framingham[scaled_columns] <- lapply(all_Framingham[pace_columns], scale)
 
+#####################################
+#####################################
+# Merge and write
 
-#####################################
-#####################################
-## Export Framingham df
-write.csv(all_Framingham, "../Lehne_Data/Lehne_FraminghamPACE_df.csv")
+write.csv(all_Framingham, "../Lehne_Data/Lehne_combined_FraminghamPACE_replicates.csv")

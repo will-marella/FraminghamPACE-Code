@@ -62,9 +62,9 @@ calculate_icc <- function(df, clocks, n_boot = 1000) {
     icc_summary <- summary(icc_result)
     
     results$clock_name[i] <- clocks[i]
-    results$icc[i] <- round(as.numeric(icc_summary$R$subject_id), 3)
-    results$lower_ci[i] <- round(as.numeric(icc_summary$CI_emp$`2.5%`), 3)
-    results$upper_ci[i] <- round(as.numeric(icc_summary$CI_emp$`97.5%`), 3)
+    results$icc[i] <- as.numeric(icc_summary$R$subject_id)
+    results$lower_ci[i] <- as.numeric(icc_summary$CI_emp$`2.5%`)
+    results$upper_ci[i] <- as.numeric(icc_summary$CI_emp$`97.5%`)
   }
   
   return(results)
